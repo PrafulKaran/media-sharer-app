@@ -10,21 +10,30 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import IconButton from '@mui/material/IconButton';
 import DeleteIcon from '@mui/icons-material/Delete';
-import LinkIcon from '@mui/icons-material/Link'; // Share/Link Icon
+import LinkIcon from '@mui/icons-material/Link';
 // File Type Icons
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import ImageIcon from '@mui/icons-material/Image';
 import AudiotrackIcon from '@mui/icons-material/Audiotrack';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import ArticleIcon from '@mui/icons-material/Article';
+import FolderZipIcon from '@mui/icons-material/FolderZip';
+import DescriptionIcon from '@mui/icons-material/Description';
 
 // Helper function to get appropriate icon based on MIME type
 const getFileIcon = (mimeType) => {
     if (!mimeType) return <InsertDriveFileIcon />;
-    if (mimeType.startsWith('image/')) return <ImageIcon color="success" />;
-    if (mimeType.startsWith('audio/')) return <AudiotrackIcon color="secondary" />;
-    if (mimeType.startsWith('video/')) return <VideocamIcon color="info" />;
-    if (mimeType === 'application/pdf') return <PictureAsPdfIcon color="error" />;
+    const type = mimeType.toLowerCase();
+    if (type.startsWith('image/')) return <ImageIcon color="success" />;
+    if (type.startsWith('audio/')) return <AudiotrackIcon color="secondary" />;
+    if (type.startsWith('video/')) return <VideocamIcon color="info" />;
+    if (type === 'application/pdf') return <PictureAsPdfIcon color="error" />;
+    if (type.includes('wordprocessingml') || type.includes('msword')) return <ArticleIcon color="primary" />;
+    if (type.includes('spreadsheetml') || type.includes('excel')) return <DescriptionIcon color="success"/>;
+    if (type.includes('presentationml') || type.includes('powerpoint')) return <DescriptionIcon color="warning"/>;
+    if (type.includes('zip')) return <FolderZipIcon color="action"/>;
+    if (type.startsWith('text/')) return <ArticleIcon color="disabled"/>;
     return <InsertDriveFileIcon />;
 };
 
@@ -40,26 +49,23 @@ const formatFileSize = (bytes) => {
 };
 
 
-// Accept onCopyLinkClick prop
 function FileListItem({ file, onViewClick, onDeleteClick, onCopyLinkClick, disabled }) {
     return (
         <ListItem
             disablePadding
-            secondaryAction={ // Container for action icons
-                <Box>
-                    {/* Copy Link Button */}
+            secondaryAction={
+                <Box> {/* Container for action buttons */}
                     <IconButton
                         edge="end"
                         aria-label={`copy share link for ${file.name}`}
                         onClick={(e) => { e.stopPropagation(); onCopyLinkClick(file); }}
-                        disabled={disabled} // Disable based on parent state
+                        disabled={disabled}
                         title="Copy Share Link"
                         size="small"
-                        sx={{ mr: 0.5 }} // Spacing between icons
+                        sx={{ mr: 0.5 }} // Space between buttons
                     >
                         <LinkIcon fontSize="inherit"/>
                     </IconButton>
-                    {/* Delete Button */}
                     <IconButton
                         edge="end"
                         aria-label={`delete file ${file.name}`}
@@ -74,11 +80,10 @@ function FileListItem({ file, onViewClick, onDeleteClick, onCopyLinkClick, disab
                 </Box>
             }
         >
-            {/* Main clickable area for viewing */}
             <ListItemButton
-                onClick={onViewClick} // Trigger view (lightbox)
+                onClick={onViewClick} // Trigger lightbox/view
                 disabled={disabled}
-                 // Responsive paddingRight for action buttons
+                // Responsive padding right to accommodate action buttons
                 sx={{ paddingRight: { xs: '80px', sm: '96px' } }}
             >
                 <ListItemIcon sx={{ minWidth: '40px' }}>
@@ -88,7 +93,7 @@ function FileListItem({ file, onViewClick, onDeleteClick, onCopyLinkClick, disab
                     primary={file.name}
                     secondary={`Size: ${formatFileSize(file.size)} - Uploaded: ${new Date(file.uploaded_at).toLocaleDateString()}`}
                     title={`Uploaded: ${new Date(file.uploaded_at).toLocaleString()}\nMIME Type: ${file.mime_type || 'N/A'}`}
-                    // Ensure long names don't break layout
+                    // Prevent long text overflow
                     primaryTypographyProps={{ noWrap: true, style: { overflow: 'hidden', textOverflow: 'ellipsis' } }}
                 />
             </ListItemButton>
@@ -106,7 +111,7 @@ FileListItem.propTypes = {
   }).isRequired,
   onViewClick: PropTypes.func.isRequired,
   onDeleteClick: PropTypes.func.isRequired,
-  onCopyLinkClick: PropTypes.func.isRequired, // Added prop type
+  onCopyLinkClick: PropTypes.func.isRequired,
   disabled: PropTypes.bool,
 };
 
