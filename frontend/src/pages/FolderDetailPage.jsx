@@ -20,10 +20,10 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
-import Snackbar from '@mui/material/Snackbar'; // For notifications
-import CloseIcon from '@mui/icons-material/Close'; // For Snackbar close button
-import Stack from '@mui/material/Stack'; // For status indicator layout
-// File Icons (Ensure these are imported)
+import Snackbar from '@mui/material/Snackbar';
+import CloseIcon from '@mui/icons-material/Close';
+import Stack from '@mui/material/Stack';
+// File Icons
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import ImageIcon from '@mui/icons-material/Image';
 import AudiotrackIcon from '@mui/icons-material/Audiotrack';
@@ -32,7 +32,6 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import ArticleIcon from '@mui/icons-material/Article';
 import FolderZipIcon from '@mui/icons-material/FolderZip';
 import DescriptionIcon from '@mui/icons-material/Description';
-
 
 // Child Components
 import FileListDisplay from '../components/FileListDisplay';
@@ -46,9 +45,18 @@ import {
     listFiles,
     deleteFile,
     getFileSignedUrl,
-    verifyFolderPassword
-    // uploadFile is handled by FileUpload component internally now
+    verifyFolderPassword,
+    checkFolderAccess
 } from '../services/api';
+
+// Lightbox and Plugins
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import Video from "yet-another-react-lightbox/plugins/video";
+import Captions from "yet-another-react-lightbox/plugins/captions";
+import Download from "yet-another-react-lightbox/plugins/download";
+import "yet-another-react-lightbox/plugins/captions.css";
+
 
 // --- Helper Functions ---
 const getFileIcon = (mimeType) => {
@@ -58,12 +66,12 @@ const getFileIcon = (mimeType) => {
     if (type.startsWith('audio/')) return <AudiotrackIcon color="secondary" />;
     if (type.startsWith('video/')) return <VideocamIcon color="info" />;
     if (type === 'application/pdf') return <PictureAsPdfIcon color="error" />;
-    if (type.includes('wordprocessingml') || type.includes('msword')) return <ArticleIcon color="primary" />; // Word Docs
-    if (type.includes('spreadsheetml') || type.includes('excel')) return <DescriptionIcon color="success"/>; // Excel - using Description for now
-    if (type.includes('presentationml') || type.includes('powerpoint')) return <DescriptionIcon color="warning"/>; // PowerPoint - using Description
-    if (type.includes('zip')) return <FolderZipIcon color="action"/>; // Zip archives
-    if (type.startsWith('text/')) return <ArticleIcon color="disabled"/>; // Text files
-    return <InsertDriveFileIcon />; // Default icon
+    if (type.includes('wordprocessingml') || type.includes('msword')) return <ArticleIcon color="primary" />;
+    if (type.includes('spreadsheetml') || type.includes('excel')) return <DescriptionIcon color="success"/>;
+    if (type.includes('presentationml') || type.includes('powerpoint')) return <DescriptionIcon color="warning"/>;
+    if (type.includes('zip')) return <FolderZipIcon color="action"/>;
+    if (type.startsWith('text/')) return <ArticleIcon color="disabled"/>;
+    return <InsertDriveFileIcon />;
 };
 
 const formatFileSize = (bytes) => {
@@ -85,7 +93,7 @@ function FolderDetailPage() {
     const [folderDetails, setFolderDetails] = useState(null);
     const [isLoadingFolder, setIsLoadingFolder] = useState(true);
     const [errorFolder, setErrorFolder] = useState('');
-    const [isPasswordProtected, setIsPasswordProtected] = useState(false);
+    // const [isPasswordProtected, setIsPasswordProtected] = useState(false); // Derived below
     const [files, setFiles] = useState([]);
     const [isLoadingFiles, setIsLoadingFiles] = useState(false);
     const [errorFiles, setErrorFiles] = useState('');
@@ -93,144 +101,209 @@ function FolderDetailPage() {
     const [enteredPassword, setEnteredPassword] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
-    const [hasFolderAccess, setHasFolderAccess] = useState(false); // Track if session likely valid
+    const [passwordAttemptSucceeded, setPasswordAttemptSucceeded] = useState(false);
     const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-    const [fileToDelete, setFileToDelete] = useState(null); // Stores {id, name}
+    const [fileToDelete, setFileToDelete] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
-    // const [deleteStatus, setDeleteStatus] = useState(''); // Replaced by snackbar
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const [signedUrlsCache, setSignedUrlsCache] = useState({});
     const [isFetchingUrl, setIsFetchingUrl] = useState(false);
-    const [fileAccessError, setFileAccessError] = useState(''); // Keep for non-snackbar errors
-    // --- Snackbar State ---
+    const [fileAccessError, setFileAccessError] = useState('');
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-    // --- End State ---
 
+    // Derive protection status and access grant status from state
+    const isProtected = folderDetails?.is_protected || false;
+    const hasFolderAccess = !isLoadingFolder && (!isProtected || passwordAttemptSucceeded);
 
     // --- Data Fetching Callbacks ---
     const fetchFolderData = useCallback(async () => {
         if (!folderId) return;
+        console.log("1. Fetching folder details...");
         setIsLoadingFolder(true); setErrorFolder(''); setFolderDetails(null);
-        setIsPasswordProtected(false); setNeedsVerification(false); setHasFolderAccess(false);
-        setErrorFiles(''); setFiles([]); setIsLoadingFiles(false);
+        setNeedsVerification(false); setPasswordAttemptSucceeded(false); // Reset access state
+        setErrorFiles(''); setFiles([]); setIsLoadingFiles(false); // Reset file state
+
         try {
             const data = await getFolderDetails(folderId);
             setFolderDetails(data);
-            if (data?.is_protected) { setIsPasswordProtected(true); setNeedsVerification(true); }
-            else { setIsPasswordProtected(false); setNeedsVerification(false); setHasFolderAccess(true); fetchFilesList(); }
-        } catch (err) { setErrorFolder(err.response?.data?.error || err.message || 'Failed folder fetch'); setIsLoadingFiles(false); }
-        finally { setIsLoadingFolder(false); }
-    }, [folderId]); // fetchFilesList removed as direct dependency
+            const protectedStatus = data?.is_protected || false;
 
-    const fetchFilesList = useCallback(async () => { // Removed password param
-        if (!folderId || (!hasFolderAccess && isPasswordProtected)) {
-             console.log("Skipping file fetch: Access not granted yet.");
-             if (!hasFolderAccess && isPasswordProtected) setIsLoadingFiles(false);
+            if (protectedStatus) {
+                console.log("Folder is protected. Checking session access...");
+                setNeedsVerification(true); // Assume verification needed initially
+                try {
+                    const accessResult = await checkFolderAccess(folderId);
+                    if (accessResult.access) {
+                        console.log("Session access check OK. Granting access.");
+                        setPasswordAttemptSucceeded(true); // Mark access granted via session
+                        setNeedsVerification(false); // Don't need prompt now
+                        // Intentionally *don't* call fetchFilesList here, let the derived state trigger it if needed
+                    } else {
+                         console.log("Session access check failed. Password prompt needed.");
+                         setPasswordAttemptSucceeded(false);
+                         setNeedsVerification(true); // Ensure prompt shows
+                    }
+                } catch (accessError) {
+                     console.error("Error during access check API call:", accessError);
+                     setErrorFolder("Error checking folder access status."); // Show general error
+                     setPasswordAttemptSucceeded(false);
+                     setNeedsVerification(true); // Require password on error
+                }
+            } else {
+                console.log("Folder not protected. Granting access.");
+                setNeedsVerification(false);
+                setPasswordAttemptSucceeded(true); // Access granted by default
+                // Intentionally *don't* call fetchFilesList here, let the useEffect handle it based on passwordAttemptSucceeded changing
+            }
+        } catch (err) {
+            console.error("Error fetching folder details:", err);
+            setErrorFolder(err.response?.data?.error || err.message || 'Failed folder fetch');
+        } finally {
+            setIsLoadingFolder(false); // Done loading folder details
+        }
+    }, [folderId]);
+
+    const fetchFilesList = useCallback(async () => {
+        // Guard: Only fetch if folderId exists AND access is granted
+        if (!folderId || !hasFolderAccess) {
+             console.log("Skipping file fetch: Access not granted.");
+             if (isLoadingFiles) setIsLoadingFiles(false);
              return;
          }
+        console.log(`Fetching files for folder ID: ${folderId} (Access Granted)`);
         setIsLoadingFiles(true); setErrorFiles(''); setFiles([]);
+
         try {
-            const data = await listFiles(folderId); // No password needed in call
+            const data = await listFiles(folderId); // Backend checks session
             setFiles(data || []);
-            if (!hasFolderAccess) setHasFolderAccess(true); // Access confirmed if this succeeds
+            setErrorFiles(''); // Clear file errors on successful fetch
         } catch (err) {
             console.error("Error fetching files:", err);
             const errorMsg = err.response?.data?.error || err.message || 'Failed fetch';
             if (err.response?.status === 401) {
                  setErrorFiles("Session expired or invalid. Please re-enter password.");
-                 setHasFolderAccess(false); setNeedsVerification(true); setSignedUrlsCache({});
+                 setPasswordAttemptSucceeded(false); // Revoke access confirmation
+                 setNeedsVerification(true); // Show prompt again
+                 setSignedUrlsCache({});
+                 setFiles([]); // Clear potentially stale file list
             } else { setErrorFiles(errorMsg); }
         } finally { setIsLoadingFiles(false); }
-    }, [folderId, hasFolderAccess, isPasswordProtected]); // Correct dependencies
+    }, [folderId, hasFolderAccess]); // Depends on folderId and access grant status
 
     // Initial data fetch effect
-    useEffect(() => { fetchFolderData(); }, [fetchFolderData]);
+    useEffect(() => {
+        fetchFolderData(); // Fetch folder details first on mount or ID change
+    }, [fetchFolderData]);
+
+    // Effect to fetch files *after* access has been granted (either initially or by password)
+    useEffect(() => {
+        if (hasFolderAccess) {
+             fetchFilesList();
+        }
+         // Clear files if access is revoked (e.g., after session error in another action)
+         else {
+            setFiles([]);
+         }
+    }, [hasFolderAccess, fetchFilesList]); // Run when access status changes
 
 
     // --- Event Handlers ---
 
-    // Password submission - calls verification API, then fetches files on success
     const handlePasswordSubmit = async (event) => {
         event.preventDefault();
         if (!enteredPassword) { setPasswordError("Password required."); return; }
-        setIsVerifyingPassword(true); setPasswordError(''); setErrorFiles(''); // Clear errors
+        setIsVerifyingPassword(true); setPasswordError(''); setErrorFiles('');
+
         try {
             await verifyFolderPassword(folderId, enteredPassword);
             console.log("Password verified via API.");
-            setHasFolderAccess(true); // Grant access conceptually
+            setPasswordAttemptSucceeded(true); // Mark verification successful
             setNeedsVerification(false); // Hide prompt
             setEnteredPassword('');
-            fetchFilesList(); // Fetch files now that session is set
+            // fetchFilesList() will be triggered by the useEffect watching hasFolderAccess
         } catch (err) {
             console.error("Password verification failed:", err);
             setPasswordError(err.response?.data?.error || "Verification failed");
-            setHasFolderAccess(false);
+            setPasswordAttemptSucceeded(false);
         } finally {
             setIsVerifyingPassword(false);
         }
     };
 
-    // Upload success callback - just refresh list and show snackbar
     const handleUploadSuccess = () => {
-        fetchFilesList();
+        fetchFilesList(); // Refresh list
         setSnackbar({ open: true, message: 'File uploaded successfully!', severity: 'success' });
     };
 
-    // Delete handlers - check frontend access state first
     const handleDeleteFileRequest = (file) => {
-         if (!hasFolderAccess && isPasswordProtected) { setSnackbar({open: true, message:'Enter password to delete.', severity:'warning'}); return; }
+         if (!hasFolderAccess) { setSnackbar({open: true, message:'Unlock folder to delete.', severity:'warning'}); return; }
         setFileToDelete(file);
-        // setDeleteStatus(''); // Not needed, using snackbar for final status
+        setSnackbar(prev => ({...prev, open: false})); // Close previous snackbar
         setOpenDeleteDialog(true);
     };
-    const handleCloseDeleteDialog = () => { if(isDeleting) return; setOpenDeleteDialog(false); setFileToDelete(null); };
+
+    const handleCloseDeleteDialog = () => {
+        if (isDeleting) return;
+        setOpenDeleteDialog(false);
+        setFileToDelete(null);
+    };
+
     const handleConfirmDelete = async () => {
         if (!fileToDelete) return;
         setIsDeleting(true);
-        // setDeleteStatus(''); // Clear previous potential errors if any were stored
+        setSnackbar(prev => ({ ...prev, open: false }));
         try {
-            await deleteFile(fileToDelete.id);
+            await deleteFile(fileToDelete.id); // Backend checks session
             setSnackbar({ open: true, message: `Successfully deleted ${fileToDelete.name}.`, severity: 'success' });
             fetchFilesList(); // Refresh list
-            handleCloseDeleteDialog(); // Close dialog on success
+            handleCloseDeleteDialog();
         } catch (err) {
             console.error("Delete failed:", err);
             const errorMsg = err.response?.data?.error || err.message || 'Could not delete file.';
-            // Show error in Snackbar instead of state/alert
             setSnackbar({ open: true, message: `Delete Error: ${errorMsg}`, severity: 'error' });
-            handleCloseDeleteDialog(); // Close dialog even on error
+            handleCloseDeleteDialog();
         } finally {
             setIsDeleting(false);
-            // Don't need to manage closing dialog here if error keeps it open,
-            // but we decided to close it always in the handlers above.
         }
     };
 
-    // View/Lightbox handlers - check frontend access state first
     const handleViewFileRequest = async (file, index) => {
-         if (!hasFolderAccess && isPasswordProtected) { setSnackbar({open: true, message:'Enter password to view file.', severity:'warning'}); return; }
-        setIsFetchingUrl(true); setFileAccessError(''); let signedUrl = signedUrlsCache[file.id];
-        if (!signedUrl) { try { signedUrl = await getFileSignedUrl(file.id); setSignedUrlsCache(prev => ({ ...prev, [file.id]: signedUrl })); } catch (err) { setFileAccessError(`URL fetch failed: ${err.message}`); setIsFetchingUrl(false); return; } }
+         if (!hasFolderAccess) { setSnackbar({open: true, message:'Unlock folder to view files.', severity:'warning'}); return; }
+        setIsFetchingUrl(true); setFileAccessError('');
+        let signedUrl = signedUrlsCache[file.id];
+        if (!signedUrl) {
+            try {
+                signedUrl = await getFileSignedUrl(file.id); // Backend checks session
+                setSignedUrlsCache(prev => ({ ...prev, [file.id]: signedUrl }));
+            } catch (err) {
+                console.error("Error getting signed URL:", err);
+                const errorMsg = err.response?.data?.error || err.message || 'Could not get file access URL.';
+                setFileAccessError(`URL fetch failed for ${file.name}: ${errorMsg}`);
+                setIsFetchingUrl(false); return;
+            }
+        }
         setIsFetchingUrl(false); setLightboxIndex(index); setLightboxOpen(true);
     };
+
     const handleLightboxClose = () => { setLightboxOpen(false); };
 
-    // Copy Share Link handler - uses Snackbar for success
     const handleCopyShareLink = async (file) => {
-        if (!hasFolderAccess && isPasswordProtected) { setSnackbar({open: true, message:'Enter password to get share link.', severity:'warning'}); return; }
-        setIsFetchingUrl(true); setFileAccessError(''); setSnackbar(prev => ({ ...prev, open: false })); // Clear previous snackbar
-        let signedUrl = signedUrlsCache[file.id]; // Check cache
-        if (!signedUrl) { try { signedUrl = await getFileSignedUrl(file.id); setSignedUrlsCache(prev => ({ ...prev, [file.id]: signedUrl })); } catch (err) { setFileAccessError(`URL fetch failed: ${err.message}`); setIsFetchingUrl(false); return; } }
-
+        if (!hasFolderAccess) { setSnackbar({open: true, message:'Unlock folder to get share link.', severity:'warning'}); return; }
+        setIsFetchingUrl(true); setFileAccessError(''); setSnackbar(prev => ({ ...prev, open: false }));
+        let signedUrl = signedUrlsCache[file.id];
+        if (!signedUrl) {
+            try { signedUrl = await getFileSignedUrl(file.id); setSignedUrlsCache(prev => ({ ...prev, [file.id]: signedUrl })); }
+            catch (err) { setFileAccessError(`URL fetch failed: ${err.message}`); setIsFetchingUrl(false); return; }
+        }
         if (navigator.clipboard && signedUrl) {
-            try { await navigator.clipboard.writeText(signedUrl); setSnackbar({ open: true, message: `Link for "${file.name}" copied!`, severity: 'success' }); } // Use snackbar
-            catch (err) { setFileAccessError(`Could not copy link: ${err.message}`); alert(`Could not auto-copy. Link:\n${signedUrl}`); }
+            try { await navigator.clipboard.writeText(signedUrl); setSnackbar({ open: true, message: `Link for "${file.name}" copied!`, severity: 'success' }); }
+            catch (err) { setFileAccessError(`Could not copy link: ${err.message}`); alert(`Manual copy:\n${signedUrl}`); }
         } else { setFileAccessError('Clipboard API unavailable.'); alert(`Clipboard unavailable. Link:\n${signedUrl}`); }
         setIsFetchingUrl(false);
     };
-    // Snackbar close handler
-    const handleCloseSnackbar = (event, reason) => { if (reason === 'clickaway') { return; } setSnackbar(prev => ({ ...prev, open: false })); };
+
+    const handleCloseSnackbar = (event, reason) => { if (reason === 'clickaway') return; setSnackbar(prev => ({ ...prev, open: false })); };
 
 
     // --- Prepare Slides for Lightbox ---
@@ -244,6 +317,7 @@ function FolderDetailPage() {
 
     // --- Render Page ---
     const isBusy = isDeleting || isFetchingUrl || isVerifyingPassword;
+    // const isProtected = folderDetails?.is_protected || false; // No longer needed directly here, use hasFolderAccess/needsVerification
 
     return (
         <Box sx={{ position: 'relative', pb: 10, px: { xs: 1, sm: 2, md: 3 } }}>
@@ -252,7 +326,7 @@ function FolderDetailPage() {
 
             {/* Folder Title & Lock Icon */}
             <Typography variant="h5" component="h1" gutterBottom sx={{ display: 'flex', alignItems: 'center', mb: 2, typography: { xs: 'h6', sm: 'h5' } }}>
-                {isLoadingFolder ? <CircularProgress size={20} sx={{ mr: 1 }} /> : (isPasswordProtected ? <LockIcon fontSize="inherit" sx={{ mr: 1, color: hasFolderAccess ? 'success.main' : 'warning.main' }} /> : <LockOpenIcon fontSize="inherit" sx={{ mr: 1, color: 'success.main' }} />)}
+                {isLoadingFolder ? <CircularProgress size={20} sx={{ mr: 1 }} /> : (folderDetails?.is_protected ? <LockIcon fontSize="inherit" sx={{ mr: 1, color: hasFolderAccess ? 'success.main' : 'warning.main' }} /> : <LockOpenIcon fontSize="inherit" sx={{ mr: 1, color: 'success.main' }} />)}
                 <span style={{ wordBreak: 'break-word' }}> Contents of: {folderDetails?.name || `Folder ${folderId}`} </span>
             </Typography>
             {errorFolder && !isLoadingFolder && (<Alert severity="error" sx={{ my: 2 }}>{errorFolder}</Alert>)}
@@ -273,7 +347,15 @@ function FolderDetailPage() {
             )}
 
             {/* FileUpload Component - Renders FAB, Input, Status Alerts */}
-            <FileUpload folderId={folderId} onUploadSuccess={handleUploadSuccess} disabled={isBusy || !hasFolderAccess} />
+            {folderDetails && ( // Render only when folder details might be available
+                 <FileUpload
+                    folderId={folderId}
+                    onUploadSuccess={handleUploadSuccess}
+                    // Disable upload if busy OR if access not granted
+                    disabled={isBusy || !hasFolderAccess}
+                 />
+            )}
+
 
             {/* --- Status indicators Stack --- */}
             <Stack spacing={1} sx={{ my: 2, minHeight: '20px' }}>
@@ -291,6 +373,7 @@ function FolderDetailPage() {
             {hasFolderAccess && <Divider sx={{ my: 2 }} />}
 
             {/* --- File List Section --- */}
+            {/* Render ONLY if access is granted */}
             {hasFolderAccess && (
                 <FileListDisplay
                     files={files}
@@ -299,11 +382,12 @@ function FolderDetailPage() {
                     onViewFile={handleViewFileRequest}
                     onDeleteFile={handleDeleteFileRequest}
                     onCopyLink={handleCopyShareLink}
+                    // Disable list items if parent is busy
                     itemDisabled={isBusy}
                 />
             )}
-            {/* No Access Message */}
-             {needsVerification && !hasFolderAccess && !isLoadingFolder && (
+            {/* Message shown if protected and access not yet granted */}
+             {folderDetails?.is_protected && needsVerification && !hasFolderAccess && !isLoadingFolder && (
                  <Typography sx={{ color: 'text.secondary', textAlign: 'center', my: 3 }}>
                      Enter password to view or manage files.
                  </Typography>
@@ -312,15 +396,16 @@ function FolderDetailPage() {
 
 
             {/* Delete Confirmation Dialog */}
-            {folderDetails && fileToDelete && ( // Render only when needed
+            {/* Render only when needed */}
+            {fileToDelete && (
                 <DeleteConfirmDialog
                     open={openDeleteDialog}
                     onClose={handleCloseDeleteDialog}
                     onConfirm={handleConfirmDelete}
                     fileName={fileToDelete?.name}
                     isDeleting={isDeleting}
-                    // Password props not needed for file deletion dialog
-                    // deleteError prop is now handled by snackbar mostly
+                    // Password props not needed for file delete dialog
+                    // Errors handled by snackbar
                 />
             )}
 
@@ -336,13 +421,11 @@ function FolderDetailPage() {
              {/* Snackbar for General Status Messages */}
              <Snackbar
                 open={snackbar.open}
-                autoHideDuration={4000} // Hide after 4 seconds
+                autoHideDuration={4000}
                 onClose={handleCloseSnackbar}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
              >
-                 {/* Embed Alert inside Snackbar for severity styling */}
-                 {/* Note: onClose on Alert is important for the 'x' button to work */}
-                 <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }} variant="filled">
+                 <Alert onClose={handleCloseSnackbar} severity={snackbar.severity || 'info'} sx={{ width: '100%' }} variant="filled">
                      {snackbar.message}
                  </Alert>
              </Snackbar>

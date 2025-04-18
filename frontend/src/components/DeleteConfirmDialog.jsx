@@ -11,32 +11,27 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
-import TextField from '@mui/material/TextField'; // Import TextField
+import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
-import { Typography } from '@mui/material';
+import Typography from '@mui/material/Typography'; // Import Typography
 
-// Accept dynamic title/text and new password-related props
+// Accept dynamic title/text and password-related props
 function DeleteConfirmDialog({
     open,
     onClose,
     onConfirm, // Parent's function to call on confirm click
     isDeleting,
-    deleteError, // General delete error message from parent
+    // deleteError, // General error now handled by parent's Snackbar
     dialogTitle = "Confirm Deletion",
     dialogText = "Are you sure? This action cannot be undone.",
-    // --- New Props for Password ---
-    requiresPassword = false, // Flag to show password field
-    password = '',             // Controlled input value for password
-    onPasswordChange = () => {}, // Callback to update password in parent state
-    passwordError = '',        // Specific error message for the password field
-    // --- End New Props ---
+    // --- Props for Optional Password Input ---
+    requiresPassword = false, // Flag from parent
+    password = '',             // Controlled value from parent
+    onPasswordChange = () => {}, // Callback to update parent state
+    passwordError = '',        // Password-specific error from parent
 }) {
 
-    // Internal handler for the confirm button click
-    const handleConfirmClick = () => {
-        // The parent's onConfirm function needs to handle reading the password state if requiresPassword is true
-        onConfirm();
-    };
+    const handleConfirmClick = () => { onConfirm(); };
 
     return (
         <Dialog
@@ -45,8 +40,7 @@ function DeleteConfirmDialog({
             disableEscapeKeyDown={isDeleting} // Prevent closing during delete operation
             aria-labelledby="delete-confirm-dialog-title"
             aria-describedby="delete-confirm-dialog-description"
-            // Prevent backdrop click from closing if password is required and might have error
-            onBackdropClick={isDeleting ? () => {} : onClose}
+            onBackdropClick={isDeleting ? () => {} : onClose} // Prevent close on backdrop click when deleting
         >
             <DialogTitle id="delete-confirm-dialog-title"> {dialogTitle} </DialogTitle>
             <DialogContent>
@@ -70,22 +64,23 @@ function DeleteConfirmDialog({
                             variant="outlined"
                             value={password} // Controlled component
                             onChange={onPasswordChange} // Update parent state on change
-                            error={!!passwordError} // Show input in error state
-                            helperText={passwordError || ' '} // Show password error or empty space to maintain layout
+                            error={!!passwordError} // Show input in error state based on prop
+                            helperText={passwordError || ' '} // Show password error or empty space
                             disabled={isDeleting} // Disable field while delete is in progress
+                            autoComplete="current-password" // Help browsers with password managers
                          />
                     </Box>
                 )}
 
-                {/* Show general delete error (if not a password error) */}
-                {!isDeleting && deleteError && !passwordError && (
+                {/* General delete error (if needed back here) */}
+                {/* {!isDeleting && deleteError && !passwordError && (
                    <Alert severity="error" sx={{mt: 2}}>{`Error: ${deleteError}`}</Alert>
-                )}
+                )} */}
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose} disabled={isDeleting}> Cancel </Button>
                 <Button
-                    onClick={handleConfirmClick} // Call internal handler
+                    onClick={handleConfirmClick} // Call internal handler -> calls parent onConfirm
                     color="error"
                     variant="contained"
                     // Disable if deleting OR if password is required but not entered
@@ -104,14 +99,14 @@ DeleteConfirmDialog.propTypes = {
   onClose: PropTypes.func.isRequired,
   onConfirm: PropTypes.func.isRequired,
   isDeleting: PropTypes.bool.isRequired,
-  deleteError: PropTypes.string, // General error from parent
+  // deleteError: PropTypes.string, // General error prop removed
   dialogTitle: PropTypes.string,
   dialogText: PropTypes.string,
-  // --- New PropTypes ---
+  // --- Password Props ---
   requiresPassword: PropTypes.bool,
   password: PropTypes.string,
   onPasswordChange: PropTypes.func,
-  passwordError: PropTypes.string, // Specific password error from parent
+  passwordError: PropTypes.string, // Specific password error message from parent
 };
 
 export default DeleteConfirmDialog;

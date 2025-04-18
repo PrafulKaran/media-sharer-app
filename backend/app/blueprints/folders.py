@@ -49,6 +49,48 @@ def get_folder_details_route(folder_id):
         print(f"Unhandled Exception getting folder details {folder_id}: {e}")
         return jsonify({"error": "An internal server error occurred"}), 500
 
+
+
+# --- NEW ROUTE: Check Folder Access (Session based) ---
+@folders_bp.route('/<int:folder_id>/check-access', methods=['GET'])
+def check_folder_access_route(folder_id):
+    """Checks if the current session grants access to a protected folder."""
+    print(f"ROUTE: GET /api/folders/{folder_id}/check-access")
+    try:
+        folder_details = folder_service.get_folder_by_id(folder_id)
+        if not folder_details:
+            return jsonify({"error": f"Folder {folder_id} not found"}), 404
+
+        access_granted = False
+        reason = "Folder is not protected"
+
+        if folder_details.get('is_protected'):
+            reason = "Password verification required or session expired" # Default reason if protected
+            print(f"Folder {folder_id} protected. Checking session for access.")
+            if session.get('verified_folder_id') == folder_id:
+                 print(f"Session valid for folder {folder_id}.")
+                 access_granted = True
+                 reason = "Access granted via session"
+                 session.modified = True # Refresh session timeout
+            else:
+                 print(f"Session invalid for folder {folder_id}.")
+                 access_granted = False
+        else:
+            # Not protected, access is granted by default
+            access_granted = True
+            print(f"Folder {folder_id} not protected. Access granted.")
+
+        if access_granted:
+            return jsonify({"access": True, "reason": reason}), 200
+        else:
+            # Return 401 if access denied due to protection/session
+            return jsonify({"access": False, "reason": reason}), 401
+
+    except ConnectionError as ce: return jsonify({"error": str(ce), "access": False}), 503
+    except Exception as e: print(f"Unhandled Exception: {e}"); return jsonify({"error": "Internal server error", "access": False}), 500
+
+
+
 # --- VERIFY PASSWORD AND SET SESSION ---
 @folders_bp.route('/<int:folder_id>/verify-password', methods=['POST'])
 def verify_folder_password_route(folder_id):

@@ -113,6 +113,30 @@ export const deleteFolder = async (folderId, password) => {
     await apiClient.delete(`/folders/${folderId}`, config);
     // No data returned on success (204)
 };
+
+/**
+ * Checks if the current session allows access to a folder.
+ * @param {number|string} folderId The ID of the folder.
+ * @returns {Promise<{access: boolean, reason?: string}>} Promise resolving with access status.
+ */
+export const checkFolderAccess = async (folderId) => {
+  if (!folderId) throw new Error("Folder ID is required to check access.");
+  try {
+      const response = await apiClient.get(`/folders/${folderId}/check-access`);
+      return response.data; // Should be { access: true/false, reason: '...' }
+  } catch (error) {
+      // Handle specific errors, e.g., 404 shouldn't happen if folder exists
+      // If backend returns 401, Axios might throw error. Return access: false.
+      if (error.response && error.response.status === 401) {
+          console.log("Access check returned 401 (Unauthorized)");
+          return { access: false, reason: error.response.data?.error || "Unauthorized" };
+      }
+      // Re-throw other errors (like 500, network errors)
+      console.error("Error checking folder access:", error.response || error.request || error.message);
+      throw error;
+  }
+};
+
 // --- END ADDITION ---
 
 
