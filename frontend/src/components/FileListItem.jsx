@@ -20,6 +20,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import ArticleIcon from '@mui/icons-material/Article';
 import FolderZipIcon from '@mui/icons-material/FolderZip';
 import DescriptionIcon from '@mui/icons-material/Description';
+import { Typography } from '@mui/material';
 
 // Helper function to get appropriate icon based on MIME type
 const getFileIcon = (mimeType) => {
@@ -30,10 +31,10 @@ const getFileIcon = (mimeType) => {
     if (type.startsWith('video/')) return <VideocamIcon color="info" />;
     if (type === 'application/pdf') return <PictureAsPdfIcon color="error" />;
     if (type.includes('wordprocessingml') || type.includes('msword')) return <ArticleIcon color="primary" />;
-    if (type.includes('spreadsheetml') || type.includes('excel')) return <DescriptionIcon color="success"/>;
-    if (type.includes('presentationml') || type.includes('powerpoint')) return <DescriptionIcon color="warning"/>;
-    if (type.includes('zip')) return <FolderZipIcon color="action"/>;
-    if (type.startsWith('text/')) return <ArticleIcon color="disabled"/>;
+    if (type.includes('spreadsheetml') || type.includes('excel')) return <DescriptionIcon color="success" />;
+    if (type.includes('presentationml') || type.includes('powerpoint')) return <DescriptionIcon color="warning" />;
+    if (type.includes('zip')) return <FolderZipIcon color="action" />;
+    if (type.startsWith('text/')) return <ArticleIcon color="disabled" />;
     return <InsertDriveFileIcon />;
 };
 
@@ -54,7 +55,7 @@ function FileListItem({ file, onViewClick, onDeleteClick, onCopyLinkClick, disab
         <ListItem
             disablePadding
             secondaryAction={
-                <Box> {/* Container for action buttons */}
+                <Box sx={{ display: 'flex', alignItems: 'center' }}> {/* Container for action buttons */}
                     <IconButton
                         edge="end"
                         aria-label={`copy share link for ${file.name}`}
@@ -62,9 +63,9 @@ function FileListItem({ file, onViewClick, onDeleteClick, onCopyLinkClick, disab
                         disabled={disabled}
                         title="Copy Share Link"
                         size="small"
-                        sx={{ mr: 0.5 }} // Space between buttons
+                    // sx={{ mr: 0.5 }} // Space between buttons
                     >
-                        <LinkIcon fontSize="inherit"/>
+                        <LinkIcon fontSize="inherit" />
                     </IconButton>
                     <IconButton
                         edge="end"
@@ -75,7 +76,7 @@ function FileListItem({ file, onViewClick, onDeleteClick, onCopyLinkClick, disab
                         title="Delete File"
                         size="small"
                     >
-                        <DeleteIcon fontSize="inherit"/>
+                        <DeleteIcon fontSize="inherit" />
                     </IconButton>
                 </Box>
             }
@@ -84,17 +85,32 @@ function FileListItem({ file, onViewClick, onDeleteClick, onCopyLinkClick, disab
                 onClick={onViewClick} // Trigger lightbox/view
                 disabled={disabled}
                 // Responsive padding right to accommodate action buttons
-                sx={{ paddingRight: { xs: '80px', sm: '96px' } }}
+                sx={{
+                    paddingRight: { xs: '88px', sm: '96px' }, // Adjusted for two small icons
+                    py: { xs: 0.5, sm: 1 } // Slightly less vertical padding on xs
+                }}
             >
-                <ListItemIcon sx={{ minWidth: '40px' }}>
+                <ListItemIcon sx={{ minWidth: '40px', mt: 0.5 }}>
                     {getFileIcon(file.mime_type)}
                 </ListItemIcon>
                 <ListItemText
                     primary={file.name}
-                    secondary={`Size: ${formatFileSize(file.size)} - Uploaded: ${new Date(file.uploaded_at).toLocaleDateString()}`}
+                    secondaryTypographyProps={{ component: 'span', style: { wordBreak: 'break-word' } }}
+                    secondary={
+                        // Use span with display block for better wrapping control maybe
+                        <>
+                            <Typography variant="caption" component="span" display="block" sx={{ lineHeight: 1.2 }}>
+                                Size: {formatFileSize(file.size)}
+                            </Typography>
+                            <Typography variant="caption" component="span" display="block" sx={{ lineHeight: 1.2 }}>
+                                Uploaded: {new Date(file.uploaded_at).toLocaleDateString()}
+                            </Typography>
+                        </>
+                    }
                     title={`Uploaded: ${new Date(file.uploaded_at).toLocaleString()}\nMIME Type: ${file.mime_type || 'N/A'}`}
                     // Prevent long text overflow
                     primaryTypographyProps={{ noWrap: true, style: { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+                    sx={{ mr: 1 }} // Margin right for spacing
                 />
             </ListItemButton>
         </ListItem>
@@ -102,17 +118,17 @@ function FileListItem({ file, onViewClick, onDeleteClick, onCopyLinkClick, disab
 }
 
 FileListItem.propTypes = {
-  file: PropTypes.shape({
-    id: PropTypes.number.isRequired,
-    name: PropTypes.string.isRequired,
-    mime_type: PropTypes.string,
-    size: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    uploaded_at: PropTypes.string.isRequired,
-  }).isRequired,
-  onViewClick: PropTypes.func.isRequired,
-  onDeleteClick: PropTypes.func.isRequired,
-  onCopyLinkClick: PropTypes.func.isRequired,
-  disabled: PropTypes.bool,
+    file: PropTypes.shape({
+        id: PropTypes.number.isRequired,
+        name: PropTypes.string.isRequired,
+        mime_type: PropTypes.string,
+        size: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        uploaded_at: PropTypes.string.isRequired,
+    }).isRequired,
+    onViewClick: PropTypes.func.isRequired,
+    onDeleteClick: PropTypes.func.isRequired,
+    onCopyLinkClick: PropTypes.func.isRequired,
+    disabled: PropTypes.bool,
 };
 
 export default FileListItem;

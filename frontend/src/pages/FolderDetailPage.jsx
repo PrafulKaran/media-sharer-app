@@ -67,10 +67,10 @@ const getFileIcon = (mimeType) => {
     if (type.startsWith('video/')) return <VideocamIcon color="info" />;
     if (type === 'application/pdf') return <PictureAsPdfIcon color="error" />;
     if (type.includes('wordprocessingml') || type.includes('msword')) return <ArticleIcon color="primary" />;
-    if (type.includes('spreadsheetml') || type.includes('excel')) return <DescriptionIcon color="success"/>;
-    if (type.includes('presentationml') || type.includes('powerpoint')) return <DescriptionIcon color="warning"/>;
-    if (type.includes('zip')) return <FolderZipIcon color="action"/>;
-    if (type.startsWith('text/')) return <ArticleIcon color="disabled"/>;
+    if (type.includes('spreadsheetml') || type.includes('excel')) return <DescriptionIcon color="success" />;
+    if (type.includes('presentationml') || type.includes('powerpoint')) return <DescriptionIcon color="warning" />;
+    if (type.includes('zip')) return <FolderZipIcon color="action" />;
+    if (type.startsWith('text/')) return <ArticleIcon color="disabled" />;
     return <InsertDriveFileIcon />;
 };
 
@@ -140,15 +140,15 @@ function FolderDetailPage() {
                         setNeedsVerification(false); // Don't need prompt now
                         // Intentionally *don't* call fetchFilesList here, let the derived state trigger it if needed
                     } else {
-                         console.log("Session access check failed. Password prompt needed.");
-                         setPasswordAttemptSucceeded(false);
-                         setNeedsVerification(true); // Ensure prompt shows
+                        console.log("Session access check failed. Password prompt needed.");
+                        setPasswordAttemptSucceeded(false);
+                        setNeedsVerification(true); // Ensure prompt shows
                     }
                 } catch (accessError) {
-                     console.error("Error during access check API call:", accessError);
-                     setErrorFolder("Error checking folder access status."); // Show general error
-                     setPasswordAttemptSucceeded(false);
-                     setNeedsVerification(true); // Require password on error
+                    console.error("Error during access check API call:", accessError);
+                    setErrorFolder("Error checking folder access status."); // Show general error
+                    setPasswordAttemptSucceeded(false);
+                    setNeedsVerification(true); // Require password on error
                 }
             } else {
                 console.log("Folder not protected. Granting access.");
@@ -167,10 +167,10 @@ function FolderDetailPage() {
     const fetchFilesList = useCallback(async () => {
         // Guard: Only fetch if folderId exists AND access is granted
         if (!folderId || !hasFolderAccess) {
-             console.log("Skipping file fetch: Access not granted.");
-             if (isLoadingFiles) setIsLoadingFiles(false);
-             return;
-         }
+            console.log("Skipping file fetch: Access not granted.");
+            if (isLoadingFiles) setIsLoadingFiles(false);
+            return;
+        }
         console.log(`Fetching files for folder ID: ${folderId} (Access Granted)`);
         setIsLoadingFiles(true); setErrorFiles(''); setFiles([]);
 
@@ -182,11 +182,11 @@ function FolderDetailPage() {
             console.error("Error fetching files:", err);
             const errorMsg = err.response?.data?.error || err.message || 'Failed fetch';
             if (err.response?.status === 401) {
-                 setErrorFiles("Session expired or invalid. Please re-enter password.");
-                 setPasswordAttemptSucceeded(false); // Revoke access confirmation
-                 setNeedsVerification(true); // Show prompt again
-                 setSignedUrlsCache({});
-                 setFiles([]); // Clear potentially stale file list
+                setErrorFiles("Session expired or invalid. Please re-enter password.");
+                setPasswordAttemptSucceeded(false); // Revoke access confirmation
+                setNeedsVerification(true); // Show prompt again
+                setSignedUrlsCache({});
+                setFiles([]); // Clear potentially stale file list
             } else { setErrorFiles(errorMsg); }
         } finally { setIsLoadingFiles(false); }
     }, [folderId, hasFolderAccess]); // Depends on folderId and access grant status
@@ -199,12 +199,12 @@ function FolderDetailPage() {
     // Effect to fetch files *after* access has been granted (either initially or by password)
     useEffect(() => {
         if (hasFolderAccess) {
-             fetchFilesList();
+            fetchFilesList();
         }
-         // Clear files if access is revoked (e.g., after session error in another action)
-         else {
+        // Clear files if access is revoked (e.g., after session error in another action)
+        else {
             setFiles([]);
-         }
+        }
     }, [hasFolderAccess, fetchFilesList]); // Run when access status changes
 
 
@@ -237,9 +237,9 @@ function FolderDetailPage() {
     };
 
     const handleDeleteFileRequest = (file) => {
-         if (!hasFolderAccess) { setSnackbar({open: true, message:'Unlock folder to delete.', severity:'warning'}); return; }
+        if (!hasFolderAccess) { setSnackbar({ open: true, message: 'Unlock folder to delete.', severity: 'warning' }); return; }
         setFileToDelete(file);
-        setSnackbar(prev => ({...prev, open: false})); // Close previous snackbar
+        setSnackbar(prev => ({ ...prev, open: false })); // Close previous snackbar
         setOpenDeleteDialog(true);
     };
 
@@ -269,7 +269,7 @@ function FolderDetailPage() {
     };
 
     const handleViewFileRequest = async (file, index) => {
-         if (!hasFolderAccess) { setSnackbar({open: true, message:'Unlock folder to view files.', severity:'warning'}); return; }
+        if (!hasFolderAccess) { setSnackbar({ open: true, message: 'Unlock folder to view files.', severity: 'warning' }); return; }
         setIsFetchingUrl(true); setFileAccessError('');
         let signedUrl = signedUrlsCache[file.id];
         if (!signedUrl) {
@@ -289,7 +289,7 @@ function FolderDetailPage() {
     const handleLightboxClose = () => { setLightboxOpen(false); };
 
     const handleCopyShareLink = async (file) => {
-        if (!hasFolderAccess) { setSnackbar({open: true, message:'Unlock folder to get share link.', severity:'warning'}); return; }
+        if (!hasFolderAccess) { setSnackbar({ open: true, message: 'Unlock folder to get share link.', severity: 'warning' }); return; }
         setIsFetchingUrl(true); setFileAccessError(''); setSnackbar(prev => ({ ...prev, open: false }));
         let signedUrl = signedUrlsCache[file.id];
         if (!signedUrl) {
@@ -325,7 +325,17 @@ function FolderDetailPage() {
             <IconButton component={RouterLink} to="/" aria-label="back to home" sx={{ mb: 1 }}><ArrowBackIcon /></IconButton>
 
             {/* Folder Title & Lock Icon */}
-            <Typography variant="h5" component="h1" gutterBottom sx={{ display: 'flex', alignItems: 'center', mb: 2, typography: { xs: 'h6', sm: 'h5' } }}>
+            <Typography variant="h5" // Base variant
+                component="h1"
+                gutterBottom
+                sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    mb: 2,
+                    // Apply different typography styles based on screen size
+                    typography: { xs: 'h6', sm: 'h5' }, // h6 on xs, h5 on sm and up
+                    wordBreak: 'break-word' // Ensure long titles wrap
+                }}>
                 {isLoadingFolder ? <CircularProgress size={20} sx={{ mr: 1 }} /> : (folderDetails?.is_protected ? <LockIcon fontSize="inherit" sx={{ mr: 1, color: hasFolderAccess ? 'success.main' : 'warning.main' }} /> : <LockOpenIcon fontSize="inherit" sx={{ mr: 1, color: 'success.main' }} />)}
                 <span style={{ wordBreak: 'break-word' }}> Contents of: {folderDetails?.name || `Folder ${folderId}`} </span>
             </Typography>
@@ -333,38 +343,44 @@ function FolderDetailPage() {
 
             {/* Password Prompt Section */}
             {needsVerification && !hasFolderAccess && !isLoadingFolder && (
-                 <Box component="form" onSubmit={handlePasswordSubmit} sx={{ my: 2, p: { xs: 1.5, sm: 2 }, border: '1px solid', borderColor: 'warning.light', borderRadius: 1 }}>
-                     <Typography variant="body1" gutterBottom>Enter password to access this folder:</Typography>
-                     <TextField margin="normal" required fullWidth name="folderPasswordPrompt" label="Folder Password" type="password" id="folderPasswordPrompt"
+                <Box component="form" onSubmit={handlePasswordSubmit} sx={{
+                    my: 2,
+                    p: { xs: 1.5, sm: 2 }, // Adjust padding for screen size
+                    border: '1px solid',
+                    borderColor: 'warning.light',
+                    borderRadius: 1
+                    }}>
+                    <Typography variant="body1" gutterBottom>Enter password to access this folder:</Typography>
+                    <TextField margin="normal" required fullWidth name="folderPasswordPrompt" label="Folder Password" type="password" id="folderPasswordPrompt"
                         value={enteredPassword} onChange={(e) => setEnteredPassword(e.target.value)}
                         error={!!passwordError} helperText={passwordError} disabled={isVerifyingPassword}
                         autoComplete="current-password"
-                     />
-                      <Button type="submit" fullWidth variant="contained" sx={{ mt: 1, mb: 1 }} disabled={isVerifyingPassword}>
-                         {isVerifyingPassword ? <CircularProgress size={24}/> : "Unlock Folder"}
-                      </Button>
-                 </Box>
+                    />
+                    <Button type="submit" fullWidth variant="contained" sx={{ mt: 1, mb: 1 }} disabled={isVerifyingPassword}>
+                        {isVerifyingPassword ? <CircularProgress size={24} /> : "Unlock Folder"}
+                    </Button>
+                </Box>
             )}
 
             {/* FileUpload Component - Renders FAB, Input, Status Alerts */}
             {folderDetails && ( // Render only when folder details might be available
-                 <FileUpload
+                <FileUpload
                     folderId={folderId}
                     onUploadSuccess={handleUploadSuccess}
                     // Disable upload if busy OR if access not granted
                     disabled={isBusy || !hasFolderAccess}
-                 />
+                />
             )}
 
 
             {/* --- Status indicators Stack --- */}
             <Stack spacing={1} sx={{ my: 2, minHeight: '20px' }}>
                 {/* Display Delete Loading */}
-                {isDeleting && <LinearProgress color="error"/> }
+                {isDeleting && <LinearProgress color="error" />}
                 {/* Display File Access (URL Fetch) Error */}
                 {fileAccessError && <Alert severity="error" >{fileAccessError}</Alert>}
                 {/* Display File Access (URL Fetch) Loading */}
-                {isFetchingUrl && <LinearProgress color="info"/>}
+                {isFetchingUrl && <LinearProgress color="info" />}
             </Stack>
             {/* --- End Status Indicators Stack --- */}
 
@@ -387,12 +403,12 @@ function FolderDetailPage() {
                 />
             )}
             {/* Message shown if protected and access not yet granted */}
-             {folderDetails?.is_protected && needsVerification && !hasFolderAccess && !isLoadingFolder && (
-                 <Typography sx={{ color: 'text.secondary', textAlign: 'center', my: 3 }}>
-                     Enter password to view or manage files.
-                 </Typography>
-             )}
-             {/* --- End File List Section --- */}
+            {folderDetails?.is_protected && needsVerification && !hasFolderAccess && !isLoadingFolder && (
+                <Typography sx={{ color: 'text.secondary', textAlign: 'center', my: 3 }}>
+                    Enter password to view or manage files.
+                </Typography>
+            )}
+            {/* --- End File List Section --- */}
 
 
             {/* Delete Confirmation Dialog */}
@@ -404,31 +420,31 @@ function FolderDetailPage() {
                     onConfirm={handleConfirmDelete}
                     fileName={fileToDelete?.name}
                     isDeleting={isDeleting}
-                    // Password props not needed for file delete dialog
-                    // Errors handled by snackbar
+                // Password props not needed for file delete dialog
+                // Errors handled by snackbar
                 />
             )}
 
 
             {/* Lightbox */}
-             <FileViewerLightbox
+            <FileViewerLightbox
                 open={lightboxOpen}
                 index={lightboxIndex}
                 slides={slides}
                 onClose={handleLightboxClose}
             />
 
-             {/* Snackbar for General Status Messages */}
-             <Snackbar
+            {/* Snackbar for General Status Messages */}
+            <Snackbar
                 open={snackbar.open}
                 autoHideDuration={4000}
                 onClose={handleCloseSnackbar}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-             >
-                 <Alert onClose={handleCloseSnackbar} severity={snackbar.severity || 'info'} sx={{ width: '100%' }} variant="filled">
-                     {snackbar.message}
-                 </Alert>
-             </Snackbar>
+            >
+                <Alert onClose={handleCloseSnackbar} severity={snackbar.severity || 'info'} sx={{ width: '100%' }} variant="filled">
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 }
