@@ -28,7 +28,7 @@ def create_app():
         app.config['SECRET_KEY'] = 'dev-insecure-secret-key-replace-me-immediately' # Insecure default
 
     # Set session lifetime (e.g., 10 minutes of inactivity)
-    session_lifetime_minutes = int(os.environ.get('SESSION_LIFETIME_MINUTES', '1'))
+    session_lifetime_minutes = int(os.environ.get('SESSION_LIFETIME_MINUTES', '10'))
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=session_lifetime_minutes)
     app.config['SESSION_PERMANENT'] = True # Use the lifetime timeout
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' # Recommended setting
