@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // Define the base URL for your Flask API
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://media-sharer-app.onrender.com/api';
 
 // Create an axios instance configured for base URL and sending credentials
 const apiClient = axios.create({
